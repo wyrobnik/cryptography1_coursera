@@ -2,33 +2,44 @@ import argparse
 from Crypto.Cipher import AES
 from Crypto import Random
 
-# TODO clean up
-#use MODE.ECB to do single block
+AES_BLOCK_SIZE = 16
 
 def encrypt_cbc_aes(key, pt):
     cipher = AES.new(key, AES.MODE_ECB)
-    # 16 byte random IV
-    iv = Random.get_random_bytes(16)
-    # encrypt pt
-    previous_encrypted_block = iv
-    ct = []
-    for i in range(0, len(pt), 16):
-        if (i+16 > len(pt)):
-            missing_bytes = i+16-len(pt)
-            block = pt[i:len(pt)] + chr(missing_bytes)*missing_bytes
-        else:
-            block = pt[i:i+16]
-        xored = ''.join([chr(ord(x) ^ ord(y)) for x, y in zip(previous_encrypted_block, block)]) # TODO move to separate function
-        encrypted_block = cipher.encrypt(xored)
-        previous_encrypted_block = encrypted_block
-        ct.append(encrypted_block)
-    # prepend IV
-    ct.insert(0, iv)
+    iv = Random.get_random_bytes(AES_BLOCK_SIZE)
 
-    return ''.join(ct).encode('hex')
+    # pad the pt
+    padding = AES_BLOCK_SIZE - (len(pt) % AES_BLOCK_SIZE)
+    pt += chr(padding)*padding
+
+    ct = [iv]
+    previous_encrypted_block = iv
+    for i in range(0, len(pt), AES_BLOCK_SIZE):
+        block = pt[i:i+AES_BLOCK_SIZE]
+
+        xored = xor(previous_encrypted_block, block)
+        encrypted_block = cipher.encrypt(xored)
+        ct.append(encrypted_block)
+
+        previous_encrypted_block = encrypted_block
+
+    return ''.join(ct)
 
 def decrypt_cbc_aes(key, ct):
-    pass
+    cipher = AES.new(key, AES.MODE_ECB)
+    pt = []
+    for i in range(AES_BLOCK_SIZE, len(ct), AES_BLOCK_SIZE):
+        decrypted_block = cipher.decrypt(ct[i:i+AES_BLOCK_SIZE])
+        message_block = xor(ct[i-AES_BLOCK_SIZE:i], decrypted_block)
+        pt.append(message_block)
+
+    pt = ''.join(pt)
+
+    # Remove padding
+    padding = ord(pt[-1])
+    pt = pt[:-padding]
+
+    return pt
 
 def encrypt_ctr_aes(key, pt):
     pass
@@ -36,8 +47,8 @@ def encrypt_ctr_aes(key, pt):
 def decrypt_ctr_aes(key, ct):
     pass
 
-def bytearray_to_hex_string(b):
-    return ''.join('{:02x}'.format(x) for x in b)
+def xor(block1, block2):
+    return ''.join([chr(ord(x) ^ ord(y)) for x, y in zip(block1, block2)])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process arguments.')
@@ -50,17 +61,17 @@ if __name__ == "__main__":
                         action="store_true")
     args = parser.parse_args()
 
-    key = bytearray_to_hex_string(bytearray.fromhex(args.key)) # TODO better way of turning hex string to string? Look at previous homework
+    key = args.key.decode('hex')
     if (args.mode == "cbc"):
         if (args.encrypt):
-            print(encrypt_cbc_aes(key, args.text))
+            print(encrypt_cbc_aes(key, args.text).encode('hex'))
         else:
-            print(decrypt_cbc_aes(key, bytearray.fromhex(args.text)))
+            print(decrypt_cbc_aes(key, args.text.decode('hex')))
     elif (args.mode == "ctr"):
         if (args.encrypt):
-            print(encrypt_ctr_aes(key, args.text))
+            print(encrypt_ctr_aes(key, args.text).encode('hex'))
         else:
-            print(decrypt_ctr_aes(key, bytearray.fromhex(args.text)))
+            print(decrypt_ctr_aes(key, args.text.decode('hex')))
     else:
         print("mode needs to either be 'cbc' or 'ctr'.")
         exit(1)
