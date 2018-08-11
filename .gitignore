@@ -1,1 +1,9 @@
 venv/*
+*.DS_Store
+*.idea/
+*.gradle/
+week5/out/
+week5/build/
+week5/gradle/
+week5/gradlew
+week5/gradlew.bat
