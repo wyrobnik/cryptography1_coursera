@@ -8,7 +8,8 @@ import javafx.util.Pair;
 
 public class DLog {
 
-  public static final BigInteger B = BigInteger.valueOf(1).shiftLeft(20);
+  public static final Integer B = 1 << 20;
+
   private static final BigInteger P_DEFAULT = new BigInteger("13407807929942597099574024998205846127479365820592393377723561443721764030073546976801874298166903427690031858186486050853753882811946569946433649006084171");
   private static final BigInteger G_DEFAULT = new BigInteger("11717829880366207009516117596335367088558084999998952205599979459063929499736583746670572176471460312928594829675428279466566527115212748467589894601965568");
   private static final BigInteger H_DEFAULT = new BigInteger("3239475104050450443565264378728065788649097520952449527834792452971981976143292558073856937958553180532878928001494706097394108577585732452307673444020333");
@@ -19,7 +20,9 @@ public class DLog {
 
   public static void main(final String[] args) {
     final DLog dlog = new DLog(P_DEFAULT, G_DEFAULT, H_DEFAULT);
+    final Long startTime = System.currentTimeMillis();
     System.out.println(dlog.computeDLog());
+    System.out.println("Took: " + (System.currentTimeMillis() - startTime));
   }
 
   /**
@@ -47,62 +50,47 @@ public class DLog {
    *
    * @return x
    */
-  public BigInteger computeDLog() {
-    final Map<BigInteger, BigInteger> valuesToX1 = computeAllValuesForX1();
-    final Pair<BigInteger, BigInteger> x0x1 = findMatchingX0(valuesToX1);
-    final BigInteger x = constructX(x0x1.getKey(), x0x1.getValue());
+  public Long computeDLog() {
+    final Map<BigInteger, Integer> valuesToX1 = computeAllValuesForX1();
+    final Pair<Integer, Integer> x0x1 = findMatchingX0(valuesToX1);
+    final Long x = constructX(x0x1.getKey(), x0x1.getValue());
     return x;
   }
 
-  private Map<BigInteger, BigInteger> computeAllValuesForX1() {
-    final Map<BigInteger, BigInteger> output = new HashMap<>();
-    BigInteger gpow = BigInteger.ONE;
-    BigInteger x1 = BigInteger.ZERO;
-    int i = 0;
-    while (x1.compareTo(B) <= 0) {
-      output.put(
-        h.divide(gpow),
-        x1
-      );
-      x1 = x1.add(BigInteger.ONE);
-      gpow = gpow.multiply(g).mod(p);
-      i+=1;
-      if (i == 1000000000) {
-        System.out.println("x1: " + x1.toString());
-        i = 0;
-      }
+  private Map<BigInteger, Integer> computeAllValuesForX1() {
+
+    final Map<BigInteger, Integer> output = new HashMap<>();
+    final BigInteger gInverse = g.modInverse(p);
+    BigInteger value = h;
+
+    for (int x1 = 0; x1 < B; x1++) {
+      output.put(value, x1);
+      value = value.multiply(gInverse).mod(p);
     }
     return output;
   }
 
   // Return x0, x1
-  private Pair<BigInteger, BigInteger> findMatchingX0(
-    final Map<BigInteger, BigInteger> valuesToX1
+  private Pair<Integer, Integer> findMatchingX0(
+    final Map<BigInteger, Integer> valuesToX1
   ) {
-    final BigInteger gb = g.modPow(B, p);
-    BigInteger x0 = BigInteger.ZERO;
+    final BigInteger gb = g.modPow(BigInteger.valueOf(B), p);
     BigInteger matchingValue = BigInteger.ONE;
-    int i = 0;
-    while (x0.compareTo(B) <= 0) {
+    Integer x0 = 0;
+    for (; x0 < B; ++x0) {
       if (valuesToX1.containsKey(matchingValue)) {
         break;
       }
-      matchingValue = matchingValue.multiply(gb);
-      x0 = x0.add(BigInteger.ONE);
-      i+=1;
-      if (i == 1000000000) {
-        System.out.println("x0: " + x0.toString());
-        i = 0;
-      }
+      matchingValue = matchingValue.multiply(gb).mod(p);
     }
     return new Pair<>(x0, valuesToX1.get(matchingValue));
   }
 
-  private BigInteger constructX(
-    final BigInteger x0,
-    final BigInteger x1
+  private Long constructX(
+    final Integer x0,
+    final Integer x1
   ) {
-    return x0.multiply(B).add(x1);
+    return B.longValue()*x0 + x1;
   }
 
 }
